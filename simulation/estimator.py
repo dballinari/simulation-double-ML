@@ -22,14 +22,19 @@ def classification_prediction(x_train: np.ndarray, w_train: np.ndarray, x_test: 
 
 def estimate_ate(y: np.ndarray, w: np.ndarray, x: np.ndarray, nfolds: int=2, **kwargs) -> float:
     # compute pseudo-outcomes
-    tau, tau_naive = _estimate_pseudo_outcomes(y, w, x, nfolds, **kwargs)
+    tau, tau_reg_split = _estimate_pseudo_outcomes(y, w, x, nfolds, **kwargs)
+    # compute pseudo-outcomes using full sample
+    tau_reg = _estimate_pseudo_outcome_full_sample(y, w, x, **kwargs)
     # estimate ATE using doubly robust estimator
     ate = np.mean(tau)
     ate_var = np.var(tau)
     # estimate ATE using naive estimator
-    ate_naive = np.mean(tau_naive)
-    ate_naive_var = np.var(tau)
-    return ate, ate_var, ate_naive, ate_naive_var
+    ate_reg_split = np.mean(tau_reg_split)
+    ate_reg_split_var = np.var(tau_reg_split)
+    # estimate ATE using regression adjustment on full sample
+    ate_reg = np.mean(tau_reg)
+    ate_reg_var = np.var(tau_reg)
+    return ate, ate_var, ate_reg_split, ate_reg_split_var, ate_reg, ate_reg_var
 
 def _estimate_pseudo_outcomes(y: np.ndarray, w: np.ndarray, x: np.ndarray, nfolds: int=2, **kwargs) -> Tuple[np.ndarray]:
     # function to estimate pseudo-outcomes using cross-fitting
@@ -54,6 +59,7 @@ def _estimate_pseudo_outcomes(y: np.ndarray, w: np.ndarray, x: np.ndarray, nfold
         # if train and/or test sample have no treated or no non-treated, set tau to nan
         if (np.sum(w_train==1)==0) or (np.sum(w_train==0)==0) or (np.sum(w_test==1)==0) or (np.sum(w_test==0)==0):
             tau[idx_test] = np.nan
+            tau_naive[idx_test] = np.nan
             continue
         # predict outcomes using data on the treated
         y_pred_treated = regression_prediction(x_train[w_train==1,:], y_train[w_train==1], x_test, **kwargs)
@@ -66,3 +72,11 @@ def _estimate_pseudo_outcomes(y: np.ndarray, w: np.ndarray, x: np.ndarray, nfold
         # compute naive pseudo-outcome on test set
         tau_naive[idx_test] = y_pred_treated-y_pred_not_treated
     return tau, tau_naive
+
+def _estimate_pseudo_outcome_full_sample(y: np.ndarray, w: np.ndarray, x: np.ndarray, **kwargs):
+    # function to estimate pseudo-outcomes using the full sample
+    # predict outcomes using data on the treated
+    y_pred_treated = regression_prediction(x[w==1,:], y[w==1], x, **kwargs)
+    # predict outcomes using data on the non-treated
+    y_pred_not_treated = regression_prediction(x[w==0,:], y[w==0], x, **kwargs)
+    return y_pred_treated-y_pred_not_treated
