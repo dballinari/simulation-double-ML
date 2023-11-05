@@ -1,6 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats 
+import os
+
+RESULT_DIR = './results/'
 
 def plot_estimator_distribution(estimator: np.ndarray, true_value: float, ax: plt.Axes, title: str):
     mean_estimator = np.nanmean(estimator)
@@ -29,22 +32,30 @@ def evaluate_estimation(ate: np.ndarray, ate_true: float, ate_var: float, n_obs:
         'skewness': scipy.stats.skew(ate)
     }
 
+for res_file in os.listdir(RESULT_DIR):
+    if not res_file.endswith('.npz'):
+        continue
+    results = np.load(os.path.join(RESULT_DIR, res_file), allow_pickle=True)
+    simulation_settings = results.f.simulation_settings.tolist()
+    print('\n'+'='*100)
+    print('Simulation settings:')
+    for key, value in simulation_settings.items():
+        print(f'\t{key}: {value}')
 
-results = np.load('results/ate_1000_2000_20_0.5_2_4_1.0_sine_200_123.npz', allow_pickle=True)
-simulation_settings = results.f.simulation_settings.tolist()
+    print('\nDouble-ML:')
+    for key, value in evaluate_estimation(results.f.ate, simulation_settings['true_ate'], results.f.ate_var, simulation_settings['n'], level=0.95).items():
+        print(f'\t{key}: {value}')
+    print('\nRegression adjustment sample-splitting')
+    for key, value in evaluate_estimation(results.f.ate_reg_split, simulation_settings['true_ate'], results.f.ate_reg_split_var, simulation_settings['n'], level=0.95).items():
+        print(f'\t{key}: {value}')
+    print('\nRegression adjustment')
+    for key, value in evaluate_estimation(results.f.ate_reg, simulation_settings['true_ate'], results.f.ate_reg_var, simulation_settings['n'], level=0.95).items():
+        print(f'\t{key}: {value}')
 
-print('Double-ML:')
-for key, value in evaluate_estimation(results.f.ate, simulation_settings['true_ate'], results.f.ate_var, simulation_settings['n'], level=0.95).items():
-    print(f'\t{key}: {value}')
-print('\nRegression adjustment sample-splitting')
-for key, value in evaluate_estimation(results.f.ate_reg_split, simulation_settings['true_ate'], results.f.ate_reg_split_var, simulation_settings['n'], level=0.95).items():
-    print(f'\t{key}: {value}')
-print('\nRegression adjustment')
-for key, value in evaluate_estimation(results.f.ate_reg, simulation_settings['true_ate'], results.f.ate_reg_var, simulation_settings['n'], level=0.95).items():
-    print(f'\t{key}: {value}')
-
-fig, ax = plt.subplots(ncols=3)
-plot_estimator_distribution(results.f.ate, simulation_settings['true_ate'], ax[0], 'ATE')
-plot_estimator_distribution(results.f.ate_reg_split, simulation_settings['true_ate'], ax[1], 'ATE reg. adj. cross-fitting')
-plot_estimator_distribution(results.f.ate_reg, simulation_settings['true_ate'], ax[2], 'ATE reg. adj.')
-plt.show()
+    fig, ax = plt.subplots(ncols=3)
+    # add title to the figure
+    fig.suptitle(f'Simulation settings: {simulation_settings}')
+    plot_estimator_distribution(results.f.ate, simulation_settings['true_ate'], ax[0], 'ATE')
+    plot_estimator_distribution(results.f.ate_reg_split, simulation_settings['true_ate'], ax[1], 'ATE reg. adj. cross-fitting')
+    plot_estimator_distribution(results.f.ate_reg, simulation_settings['true_ate'], ax[2], 'ATE reg. adj.')
+    plt.show()

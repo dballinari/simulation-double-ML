@@ -37,7 +37,7 @@ if __name__=='__main__':
     estimates_ate_reg_var = np.zeros(args.num_simulations)
     proportion_treated = np.zeros(args.num_simulations)
     # define export file names
-    file_name = f'{args.num_simulations}_{args.n}_{args.p}_{args.alpha}_{args.beta}_{args.gamma}_{args.true_ate}_{args.cate_type}_{args.n_estimators}_{args.seed}'
+    file_name = f'NSim{args.num_simulations}_NObs{args.n}_NVars{args.p}_NFolds{args.n_folds}_Alpha{args.alpha}_Beta{args.beta}_Gamma{args.gamma}_ATE{args.true_ate}_Type{args.cate_type}_NTrees{args.n_estimators}_Seed{args.seed}'
     # add progress bar
     progress_bar = tqdm(total=args.num_simulations)
     for i in range(args.num_simulations):
