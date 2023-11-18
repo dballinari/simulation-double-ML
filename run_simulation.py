@@ -4,9 +4,7 @@ from simulation.estimator import estimate_ate
 import argparse
 import numpy as np
 from tqdm import tqdm
-import json
-import os
-import matplotlib.pyplot as plt
+import git
 
 # parse arguments
 argparser = argparse.ArgumentParser()
@@ -53,7 +51,7 @@ if __name__=='__main__':
         estimates_ate_reg_split[i] = ate_reg_split
         estimates_ate_reg_split_var[i] = ate_reg_split_var
         estimates_ate_reg[i] = ate_reg
-        estimates_ate_reg[i] = ate_reg_var
+        estimates_ate_reg_var[i] = ate_reg_var
         # update progress bar
         progress_bar.update(1)
     # close progress bar
@@ -66,4 +64,6 @@ if __name__=='__main__':
              ate_reg=estimates_ate_reg,
              ate_reg_var=estimates_ate_reg_var,
              proportion_treated=proportion_treated, 
-             simulation_settings=vars(args))
+             simulation_settings=vars(args),
+             git_hash=git.Repo(search_parent_directories=True).head.object.hexsha,
+             )
