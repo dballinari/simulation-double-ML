@@ -28,7 +28,7 @@ def _dgp1(n: int, p: int, corr: float=0.0, sigma: float=1) -> Tuple[np.ndarray, 
     e = 1/(1+np.exp(x[:,0]+x[:,1]))
     b = 2*np.log(1+np.exp(x[:,0]+x[:,1]+x[:,2]))
     tau = 1
-    w = np.random.binomial(1, e, size=n)
+    w = np.random.binomial(1, e)
     y = b + (w-0.5) * tau + sigma * np.random.normal(size=x.shape[0])
     ate = tau
     return x, w, y, ate
@@ -40,7 +40,7 @@ def _dgp2(n: int, p: int, corr: float=0.0, sigma: float=1) -> Tuple[np.ndarray, 
     e = 1/(1+np.exp(-x[:,0])+np.exp(-x[:,1]))
     b = 0.5*np.maximum(x[:,0]+x[:,1]+x[:,2], np.repeat(0, n)) + 0.5*np.maximum(x[:,3]+x[:,4], np.repeat(0, n))
     tau = np.maximum(x[:,0]+x[:,1]+x[:,2], np.repeat(0, n)) - np.maximum(x[:,3]+x[:,4], np.repeat(0, n))
-    w = np.random.binomial(1, e, size=n)
+    w = np.random.binomial(1, e)
     y = b + (w-0.5) * tau + sigma * np.random.normal(size=x.shape[0])
     ate = np.sqrt(np.sum(np.dot(Sigma[:3,:3], np.ones(3)))/(2*np.pi))\
           - np.sqrt(np.sum(np.dot(Sigma[3:5,3:5], np.ones(2)))/(2*np.pi))
@@ -53,7 +53,7 @@ def _dgp3(n: int, p: int, corr: float=0.0, sigma: float=1) -> Tuple[np.ndarray, 
     e = 1/(1+np.exp(-x[:,0])+np.exp(-x[:,1]))
     b = 0.5*np.maximum(x[:,0]+x[:,1]+x[:,2], np.repeat(0, n))
     tau = np.maximum(x[:,0]+x[:,1]+x[:,2], np.repeat(0, n)) - np.maximum(x[:,3]+x[:,4], np.repeat(0, n))
-    w = np.random.binomial(1, e, size=n)
+    w = np.random.binomial(1, e)
     y = b + (w-0.5) * tau + sigma * np.random.normal(size=x.shape[0])
     ate = np.sqrt(np.sum(np.dot(Sigma[:3,:3], np.ones(3)))/(2*np.pi))\
           - np.sqrt(np.sum(np.dot(Sigma[3:5,3:5], np.ones(2)))/(2*np.pi))
