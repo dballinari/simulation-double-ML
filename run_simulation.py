@@ -1,6 +1,6 @@
 from simulation.dgps import simulate_data
 from simulation.estimator import estimate_ate
-
+import os
 import argparse
 import numpy as np
 from tqdm import tqdm
@@ -57,7 +57,10 @@ if __name__=='__main__':
         progress_bar.update(1)
     # close progress bar
     progress_bar.close()
-    np.savez(f'results/ate_{file_name}.npz', 
+    # if results folder does not exist, create it
+    if not os.path.exists('results'):
+        os.makedirs('results')
+    np.savez(f'results/{file_name}.npz', 
              ate=estimates_ate, 
              ate_var=estimates_ate_var,
              ate_reg_split=estimates_ate_reg_split, 
