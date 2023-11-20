@@ -16,6 +16,7 @@ def simulate_data(n: int, p: int, mode: int=1, corr: float=0.0, sigma: float=1) 
          1: _dgp1,
          2: _dgp2,
          3: _dgp3,
+         4: _dgp4,
     }
     if mode not in dgps.keys():
          raise ValueError(f"Mode {mode} not recognized")
@@ -58,6 +59,20 @@ def _dgp3(n: int, p: int, corr: float=0.0, sigma: float=1) -> Tuple[np.ndarray, 
     ate = np.sqrt(np.sum(np.dot(Sigma[:3,:3], np.ones(3)))/(2*np.pi))\
           - np.sqrt(np.sum(np.dot(Sigma[3:5,3:5], np.ones(2)))/(2*np.pi))
     return x, w, y, ate
+
+
+def _dgp4(n: int, p: int, corr: float=0.0, sigma: float=1) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+    # Set-up C in Nie and Wager (2017) [https://arxiv.org/abs/1712.04912] with weaker cofounding
+    Sigma = _get_covariance_matrix(p, corr)
+    x = sim_covariates(n, p, type='normal', cov=Sigma)
+    e = 1/(1+np.exp(x[:,0]+x[:,1]))
+    b = 2*np.log(1+np.exp(x[:,1]+x[:,2]+x[:,3]))
+    tau = 1
+    w = np.random.binomial(1, e)
+    y = b + (w-0.5) * tau + sigma * np.random.normal(size=x.shape[0])
+    ate = tau
+    return x, w, y, ate
+
 
 def _get_covariance_matrix(p: int, corr: float=0.0) -> np.ndarray:
     # define covariance matrix where entries are 0.7^(|i-j|) for i,j=1,...,p
