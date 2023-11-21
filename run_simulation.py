@@ -34,7 +34,7 @@ if __name__=='__main__':
     proportion_treated = np.zeros(args.num_simulations)
     true_ate = np.zeros(args.num_simulations)
     # define export file names
-    file_name = f'Mode{args.mode}_NSim{args.num_simulations}_NObs{args.n}_NVars{args.p}_NFolds{args.n_folds}_Corr{args.corr}_Sigma{args.sigma}_NTrees{args.n_estimators}_Seed{args.seed}'
+    file_name = f'Mode{args.mode}_NSim{args.num_simulations}_NObs{args.n}_NVars{args.p}_NFolds{args.n_folds}_Corr{args.corr}_Sigma{args.sigma}_NTrees{args.n_estimators}_LeafSize{args.min_samples_leaf}_Seed{args.seed}'
     # add progress bar
     progress_bar = tqdm(total=args.num_simulations)
     for i in range(args.num_simulations):
