@@ -37,25 +37,26 @@ for res_file in os.listdir(RESULT_DIR):
         continue
     results = np.load(os.path.join(RESULT_DIR, res_file), allow_pickle=True)
     simulation_settings = results.f.simulation_settings.tolist()
+    true_ate = results.f.true_ate[0]
     print('\n'+'='*100)
     print('Simulation settings:')
     for key, value in simulation_settings.items():
         print(f'\t{key}: {value}')
 
     print('\nDouble-ML:')
-    for key, value in evaluate_estimation(results.f.ate, simulation_settings['true_ate'], results.f.ate_var, simulation_settings['n'], level=0.95).items():
+    for key, value in evaluate_estimation(results.f.ate, true_ate, results.f.ate_var, simulation_settings['n'], level=0.95).items():
         print(f'\t{key}: {value}')
     print('\nRegression adjustment sample-splitting')
-    for key, value in evaluate_estimation(results.f.ate_reg_split, simulation_settings['true_ate'], results.f.ate_reg_split_var, simulation_settings['n'], level=0.95).items():
+    for key, value in evaluate_estimation(results.f.ate_reg_split, true_ate, results.f.ate_reg_split_var, simulation_settings['n'], level=0.95).items():
         print(f'\t{key}: {value}')
     print('\nRegression adjustment')
-    for key, value in evaluate_estimation(results.f.ate_reg, simulation_settings['true_ate'], results.f.ate_reg_var, simulation_settings['n'], level=0.95).items():
+    for key, value in evaluate_estimation(results.f.ate_reg, true_ate, results.f.ate_reg_var, simulation_settings['n'], level=0.95).items():
         print(f'\t{key}: {value}')
 
     fig, ax = plt.subplots(ncols=3)
     # add title to the figure
     fig.suptitle(f'Simulation settings: {simulation_settings}')
-    plot_estimator_distribution(results.f.ate, simulation_settings['true_ate'], ax[0], 'ATE')
-    plot_estimator_distribution(results.f.ate_reg_split, simulation_settings['true_ate'], ax[1], 'ATE reg. adj. cross-fitting')
-    plot_estimator_distribution(results.f.ate_reg, simulation_settings['true_ate'], ax[2], 'ATE reg. adj.')
+    plot_estimator_distribution(results.f.ate, true_ate, ax[0], 'ATE')
+    plot_estimator_distribution(results.f.ate_reg_split, true_ate, ax[1], 'ATE reg. adj. cross-fitting')
+    plot_estimator_distribution(results.f.ate_reg, true_ate, ax[2], 'ATE reg. adj.')
     plt.show()

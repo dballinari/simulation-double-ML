@@ -1,5 +1,6 @@
 import numpy as np
 from scipy import stats
+from scipy.special import expit, logit
 from typing import Tuple
 
 # Definition of DGPs as in the paper Okasa (2022) [https://arxiv.org/abs/2201.12692] with constant ATE
@@ -7,62 +8,87 @@ from typing import Tuple
 # Define constants
 MIN_COVARIATES = 6
 
-def sim_outcomes(n: int, p: int, alpha: float, beta: int, gamma: int, true_ate: float, cate_type: str='constant') -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def simulate_data(n: int, p: int, mode: int=1, corr: float=0.0, sigma: float=1) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
     if p < MIN_COVARIATES:
-        raise ValueError(f"Number of covariates must be at least {MIN_COVARIATES}")
-    # simulate nxp covariates from a uniform distribution
-    x = sim_covariates(n, p)
-    # simulate treatment assignment
-    w = _sim_treatment_assignment(x, alpha, beta, gamma)
-    # simulate outcomes
-    y0 = outcomes_not_treated(x)
-    y1 = outcomes_treated(x, true_ate, cate_type)
-    # observed outcomes
-    y = y0*(1-w) + y1*w + np.random.normal(size=x.shape[0])
-    return x, w, y
+         raise ValueError(f"Number of covariates must be at least {MIN_COVARIATES}")
 
-def propensity_scores(x: np.ndarray, alpha: float, beta: int, gamma: int) -> np.ndarray:
-    # define sinus function of the product of the first 4 covariates
-    f = np.sin(np.prod(x[:,:4], axis=1)*np.pi)
-    # propensity scores as beta distribution at f
-    ps = alpha*(1 + stats.beta.cdf(f, beta, gamma))
-    return ps
-
-def sim_covariates(n: int, p: int) -> np.ndarray:
-    # simulate nxp covariates from a uniform distribution
-    x = np.random.uniform(size=(n, p))
-    return x
-
-def outcomes_not_treated(x: np.ndarray) -> np.ndarray:
-    mu = _base_outcomes(x)
-    return mu
-
-def outcomes_treated(x: np.ndarray, true_ate: float, cate_type: str='constant') -> np.ndarray:
-    tau = _cate(cate_type)(x)
-    mu = true_ate*tau + _base_outcomes(x)
-    return mu
-
-def _base_outcomes(x: np.ndarray) -> np.ndarray:
-    return np.sin(np.prod(x[:,:2], axis=1)*np.pi) + 2*(x[:,3]-0.5)**2 + 0.5*x[:,4] 
-
-
-def _cate(type: str):
-    # returns CATE with expected value equal to 1
-    cates = {
-        'complex': lambda x: (1 + (1/(1+np.exp(-20*(x[:,0]-0.5))) - 0.5))*(1 + (1/(1+np.exp(-20*(x[:,1]-0.5))) - 0.5)), # as in the paper https://arxiv.org/abs/1510.04342
-        'sine': lambda x: (np.cos(x[:,0]*np.pi) + np.sin(x[:,1]*np.pi))*np.pi/2, # in expectation equal to 2/pi
-        'constant': lambda x: 1,
+    dgps = {
+         1: _dgp1,
+         2: _dgp2,
+         3: _dgp3,
+         4: _dgp4,
     }
-    if type not in cates.keys():
-        raise ValueError(f"CATE type {type} not recognized")
-    return cates[type]
-            
-            
+    if mode not in dgps.keys():
+         raise ValueError(f"Mode {mode} not recognized")
+    return dgps[mode](n, p, corr, sigma)
 
-def _sim_treatment_assignment(x: np.ndarray, alpha: float, beta: int, gamma: int) -> np.ndarray:
-    # simulate treatment assignment
-    ps = propensity_scores(x, alpha, beta, gamma)
-    # treatment assignment as bernoulli distribution at ps
-    w = np.random.binomial(1, ps)
-    return w
+def _dgp1(n: int, p: int, corr: float=0.0, sigma: float=1) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+    # Set-up C in Nie and Wager (2017) [https://arxiv.org/abs/1712.04912]
+    Sigma = _get_covariance_matrix(p, corr)
+    x = sim_covariates(n, p, type='normal', cov=Sigma)
+    e = 1/(1+np.exp(x[:,0]+x[:,1]))
+    b = 2*np.log(1+np.exp(x[:,0]+x[:,1]+x[:,2]))
+    tau = 1
+    w = np.random.binomial(1, e)
+    y = b + (w-0.5) * tau + sigma * np.random.normal(size=x.shape[0])
+    ate = tau
+    return x, w, y, ate
+
+def _dgp2(n: int, p: int, corr: float=0.0, sigma: float=1) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+    # Set-up D in Nie and Wager (2017) [https://arxiv.org/abs/1712.04912]
+    Sigma = _get_covariance_matrix(p, corr)
+    x = sim_covariates(n, p, type='normal', cov=Sigma)
+    e = 1/(1+np.exp(-x[:,0])+np.exp(-x[:,1]))
+    b = 0.5*np.maximum(x[:,0]+x[:,1]+x[:,2], np.repeat(0, n)) + 0.5*np.maximum(x[:,3]+x[:,4], np.repeat(0, n))
+    tau = np.maximum(x[:,0]+x[:,1]+x[:,2], np.repeat(0, n)) - np.maximum(x[:,3]+x[:,4], np.repeat(0, n))
+    w = np.random.binomial(1, e)
+    y = b + (w-0.5) * tau + sigma * np.random.normal(size=x.shape[0])
+    ate = np.sqrt(np.sum(np.dot(Sigma[:3,:3], np.ones(3)))/(2*np.pi))\
+          - np.sqrt(np.sum(np.dot(Sigma[3:5,3:5], np.ones(2)))/(2*np.pi))
+    return x, w, y, ate
+
+def _dgp3(n: int, p: int, corr: float=0.0, sigma: float=1) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+    # Adapted set-up D in Nie and Wager (2017) [https://arxiv.org/abs/1712.04912]
+    Sigma = _get_covariance_matrix(p, corr)
+    x = sim_covariates(n, p, type='normal', cov=Sigma)
+    e = 1/(1+np.exp(-x[:,0])+np.exp(-x[:,1]))
+    b = 0.5*np.maximum(x[:,0]+x[:,1]+x[:,2], np.repeat(0, n))
+    tau = np.maximum(x[:,0]+x[:,1]+x[:,2], np.repeat(0, n)) - np.maximum(x[:,3]+x[:,4], np.repeat(0, n))
+    w = np.random.binomial(1, e)
+    y = b + (w-0.5) * tau + sigma * np.random.normal(size=x.shape[0])
+    ate = np.sqrt(np.sum(np.dot(Sigma[:3,:3], np.ones(3)))/(2*np.pi))\
+          - np.sqrt(np.sum(np.dot(Sigma[3:5,3:5], np.ones(2)))/(2*np.pi))
+    return x, w, y, ate
+
+
+def _dgp4(n: int, p: int, corr: float=0.0, sigma: float=1) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+    # Set-up C in Nie and Wager (2017) [https://arxiv.org/abs/1712.04912] with weaker cofounding
+    Sigma = _get_covariance_matrix(p, corr)
+    x = sim_covariates(n, p, type='normal', cov=Sigma)
+    e = 1/(1+np.exp(x[:,0]+x[:,1]))
+    b = 2*np.log(1+np.exp(x[:,1]+x[:,2]+x[:,3]))
+    tau = 1
+    w = np.random.binomial(1, e)
+    y = b + (w-0.5) * tau + sigma * np.random.normal(size=x.shape[0])
+    ate = tau
+    return x, w, y, ate
+
+
+def _get_covariance_matrix(p: int, corr: float=0.0) -> np.ndarray:
+    # define covariance matrix where entries are 0.7^(|i-j|) for i,j=1,...,p
+    i, j = np.indices((p, p))
+    Sigma = corr ** np.abs(i - j)
+    return Sigma
+
+
+def sim_covariates(n: int, p: int, type: str='uniform', cov: np.array=None) -> np.ndarray:
+    if type == 'uniform':
+        # simulate nxp covariates from a uniform distribution
+        x = np.random.uniform(size=(n, p))
+    elif type == 'normal':
+        if cov is None:
+            cov = np.eye(p)
+        # simulate nxp covariates from a multivariate normal distribution with mean 0 and covariance matrix cov
+        x = np.random.multivariate_normal(np.zeros(p), cov, size=n)
+    return x
     
